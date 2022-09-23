@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    tags:
+    - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: docker/setup-qemu-action@v2
+    - uses: docker/setup-buildx-action@v2
+
+    - uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - id: tags
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/wfg/wireguard
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+
+    - id: build-args
+      run: |
+        ref=${{ github.ref }}
+        vpatch=${ref##refs/*/}
+        patch=${vpatch#v}
+        echo "::set-output name=date::$(date --utc --iso-8601=seconds)"
+        echo "::set-output name=version::$patch"
+
+    - uses: docker/build-push-action@v3
+      with:
+        context: "{{defaultContext}}:build"
+        platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+        build-args: |
+          BUILD_DATE=${{ steps.build-args.outputs.date }}
+          IMAGE_VERSION=${{ steps.build-args.outputs.version }}
+        tags: ${{ steps.tags.outputs.tags }}
+        push: true
