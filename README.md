@@ -17,7 +17,7 @@ docker pull ghcr.io/wfg/wireguard
 
 To build it yourself, run
 ```
-docker build -t ghcr.io/wfg/wireguard https://github.com/wfg/docker-wireguard.git#:build
+docker build -t ghcr.io/wfg/wireguard https://github.com/wfg/docker-wireguard.git#main:build
 ```
 
 ### Creating and running a container
