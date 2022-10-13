@@ -28,18 +28,18 @@ iptables --insert OUTPUT \
     ! --out-interface "$interface" \
     --match mark ! --mark "$(wg show "$interface" fwmark)" \
     --match addrtype ! --dst-type LOCAL \
-    ! --destination "$(ip -o addr show dev eth0 | awk '$3 == "inet" {print $4}')" \
+    ! --destination "$(ip -4 -oneline addr show dev eth0 | awk 'NR == 1 { print $4 }')" \
     --jump REJECT
 
 # Create static routes for any ALLOWED_SUBNETS and punch holes in the firewall
-default_gateway=$(ip -4 route | grep default | awk '{print $3}')
+default_gateway=$(ip -4 route | awk '$1 == "default" { print $3 }')
 for subnet in ${ALLOWED_SUBNETS//,/ }; do
     ip route add "$subnet" via "$default_gateway"
     iptables --insert OUTPUT --destination "$subnet" --jump ACCEPT
 done
 
 # Gracefully exit when signalled
-trap 'cleanup $interface' TERM INT QUIT
+trap 'cleanup $interface' TERM
 
 sleep infinity &
 wait
