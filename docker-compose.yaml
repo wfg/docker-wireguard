@@ -3,11 +3,11 @@ services:
     image: ghcr.io/wfg/wireguard:latest
     container_name: wireguard
     cap_add:
-    - NET_ADMIN
+      - NET_ADMIN
     sysctls:
-    - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.conf.all.src_valid_mark=1
     environment:
-    - ALLOWED_SUBNETS=192.168.10.0/24
+      - ALLOWED_SUBNETS=192.168.10.0/24
     volumes:
-    - ./wg0.conf:/etc/wireguard/wg0.conf
+      - ./wg0.conf:/etc/wireguard/wg0.conf
     restart: unless-stopped
