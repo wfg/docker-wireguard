@@ -25,34 +25,36 @@ trap 'cleanup $interface' SIGINT SIGTERM
 # > [this iptables command] works together with wg-quick’s fwmark usage in order to drop all packets
 # > that are either not coming out of the tunnel encrypted or not going through the tunnel itself
 # Source: https://git.zx2c4.com/wireguard-tools/about/src/man/wg-quick.8
-#
-# This also allows packets to the Docker network
+iptables --new-chain LOCAL_DOCKER_OUTPUT
 iptables --insert OUTPUT \
     ! --out-interface "$interface" \
     --match mark ! --mark "$(wg show "$interface" fwmark)" \
     --match addrtype ! --dst-type LOCAL \
-    ! --destination "$(ip -4 -oneline addr show dev eth0 | awk 'NR == 1 { print $4 }')" \
+    --jump LOCAL_DOCKER_OUTPUT
+
+# When your container is in multiple networks, you will have multiple interfaces.
+# The following lines create a string of all relevant addresses to allow.
+local_docker_nets=()
+for ifname in $(ip -4 -json link show type veth | jq --raw-output '.[].ifname'); do
+    for net in $(ip -4 -json address show dev "$ifname" | jq --raw-output '.[].addr_info[] | "\(.local)/\(.prefixlen)"'); do
+        local_docker_nets+=( "$net" )
+    done
+done
+printf -v dest_nets '%s,' "${local_docker_nets[@]}"
+
+iptables --append LOCAL_DOCKER_OUTPUT \
+    --destination "${dest_nets%,}" \
+    --jump ACCEPT
+iptables --append LOCAL_DOCKER_OUTPUT \
     --jump REJECT
 
-# nft insert rule ip filter OUTPUT \
-#     oifname != "$interface" \
-#     mark != "$(wg show "$interface" fwmark)" \
-#     fib daddr type != local \
-#     ip daddr != "$(ip -4 -oneline addr show dev eth0 | awk 'NR == 1 { print $4 }')" \
-#     counter reject
-
-
 # Create static routes for any ALLOWED_SUBNETS and punch holes in the firewall
-default_gateway=$(ip -4 route | awk '$1 == "default" { print $3 }')
+default_gateway=$(ip -4 -json route | jq --raw-output '.[] | select(.dst == "default") | .gateway')
 for subnet in ${ALLOWED_SUBNETS//,/ }; do
     ip route add "$subnet" via "$default_gateway"
     iptables --insert OUTPUT \
         --destination "$subnet" \
         --jump ACCEPT
-
-    # nft insert rule ip filter OUTPUT \
-    #     ip daddr "$subnet" \
-    #     counter accept
 done
 
 sleep infinity &

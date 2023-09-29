@@ -22,6 +22,7 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
         iproute2 \
         iptables \
+        jq \
         openresolv \
     && rm -rf /var/lib/apt/lists/*
 
