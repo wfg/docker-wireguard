@@ -10,7 +10,7 @@ cleanup() {
 # Find a config file and isolate the interface name
 config_file=$(find /etc/wireguard -type f -name '*.conf' | shuf -n 1)
 if [[ -z $config_file ]]; then
-    echo "config file not found"
+    >&2 echo "config file not found"
     exit 1
 fi
 interface=$(basename "${config_file%.*}")
