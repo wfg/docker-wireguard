@@ -1,6 +1,6 @@
 FROM debian:bookworm-slim AS build
 
-ARG GIT_REF=master
+ARG WGT_GIT_REF
 
 RUN apt-get update \
     && apt-get install -y \
@@ -8,7 +8,7 @@ RUN apt-get update \
         git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --branch "$GIT_REF" --depth 1 https://git.zx2c4.com/wireguard-tools \
+RUN git clone --branch "$WGT_GIT_REF" --depth 1 https://git.zx2c4.com/wireguard-tools \
     && make -C wireguard-tools/src \
     && DESTDIR=build WITH_BASHCOMPLETION=no WITH_WGQUICK=yes WITH_SYSTEMDUNITS=no make -C wireguard-tools/src install
 

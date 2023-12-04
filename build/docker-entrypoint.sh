@@ -4,7 +4,6 @@ set -e
 
 cleanup() {
     wg-quick down "$1"
-    exit 0
 }
 
 # Find a config file and isolate the interface name

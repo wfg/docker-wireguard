@@ -1,46 +1,44 @@
 name: Build
 
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+  schedule:
+    - cron: 0 1 * * 2
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: docker/setup-qemu-action@v2
-      - uses: docker/setup-buildx-action@v2
+      - uses: actions/checkout@v4
 
-      - uses: docker/login-action@v2
+      - run: cat build_variables >> $GITHUB_ENV
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: tags
-        uses: docker/metadata-action@v4
+      - uses: docker/metadata-action@v5
+        id: meta
         with:
-          images: ghcr.io/wfg/wireguard
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=true
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=sha,prefix=
 
-      - id: build-args
-        run: |
-          ref=${{ github.ref }}
-          vpatch=${ref##refs/*/}
-          patch=${vpatch#v}
-          echo "::set-output name=date::$(date --utc --iso-8601=seconds)"
-          echo "::set-output name=version::$patch"
-
-      - uses: docker/build-push-action@v3
+      - uses: docker/build-push-action@v5
         with:
-          context: "{{defaultContext}}:build"
-          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+          context: build
           build-args: |
-            BUILD_DATE=${{ steps.build-args.outputs.date }}
-            IMAGE_VERSION=${{ steps.build-args.outputs.version }}
-          tags: ${{ steps.tags.outputs.tags }}
+            WGT_GIT_REF=${{ env.WGT_GIT_REF }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           push: true

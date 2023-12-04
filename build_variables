@@ -1,0 +1,2 @@
+IMAGE_NAME=ghcr.io/wfg/wireguard
+WGT_GIT_REF=master
