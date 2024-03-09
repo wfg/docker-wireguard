@@ -5,8 +5,7 @@ ARG WGT_GIT_REF
 RUN apt-get update \
     && apt-get install -y \
         build-essential \
-        git \
-    && rm -rf /var/lib/apt/lists/*
+        git
 
 RUN git clone --branch "$WGT_GIT_REF" --depth 1 https://git.zx2c4.com/wireguard-tools \
     && make -C wireguard-tools/src \

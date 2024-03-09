@@ -12,7 +12,7 @@ if [[ -z $config_file ]]; then
     >&2 echo "config file not found"
     exit 1
 fi
-interface=$(basename "${config_file%.*}")
+interface=$(basename "${config_file%\.conf}")
 
 # Bring up the WireGuard interface
 wg-quick up "$interface"
