@@ -39,7 +39,7 @@ iptables --insert OUTPUT \
 local_docker_nets=()
 for ifname in $(ip -4 -json link show type veth | jq --raw-output '.[].ifname'); do
     for net in $(ip -4 -json address show dev "${ifname}" | jq --raw-output '.[].addr_info[] | "\(.local)/\(.prefixlen)"'); do
-        local_docker_nets+=( "${net}" )
+        local_docker_nets+=("${net}")
     done
 done
 printf -v dest_nets '%s,' "${local_docker_nets[@]}"
