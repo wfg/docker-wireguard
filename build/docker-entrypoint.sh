@@ -1,6 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
 
 cleanup() {
     wg-quick down "$1"
@@ -8,14 +10,14 @@ cleanup() {
 
 # Find a config file and isolate the interface name
 config_file=$(find /etc/wireguard -type f -name '*.conf' | shuf -n 1)
-if [[ -z $config_file ]]; then
+if [[ -z ${config_file} ]]; then
     >&2 echo "config file not found"
     exit 1
 fi
 interface=$(basename "${config_file%\.conf}")
 
 # Bring up the WireGuard interface
-wg-quick up "$interface"
+wg-quick up "${interface}"
 
 # Gracefully exit when signalled
 trap 'cleanup $interface' SIGINT SIGTERM
@@ -24,10 +26,11 @@ trap 'cleanup $interface' SIGINT SIGTERM
 # > [this iptables command] works together with wg-quick’s fwmark usage in order to drop all packets
 # > that are either not coming out of the tunnel encrypted or not going through the tunnel itself
 # Source: https://git.zx2c4.com/wireguard-tools/about/src/man/wg-quick.8
+fwmark=$(wg show "${interface}" fwmark)
 iptables --new-chain LOCAL_DOCKER_OUTPUT
 iptables --insert OUTPUT \
-    ! --out-interface "$interface" \
-    --match mark ! --mark "$(wg show "$interface" fwmark)" \
+    ! --out-interface "${interface}" \
+    --match mark ! --mark "${fwmark}" \
     --match addrtype ! --dst-type LOCAL \
     --jump LOCAL_DOCKER_OUTPUT
 
@@ -35,8 +38,8 @@ iptables --insert OUTPUT \
 # The following lines create a string of all relevant addresses to allow.
 local_docker_nets=()
 for ifname in $(ip -4 -json link show type veth | jq --raw-output '.[].ifname'); do
-    for net in $(ip -4 -json address show dev "$ifname" | jq --raw-output '.[].addr_info[] | "\(.local)/\(.prefixlen)"'); do
-        local_docker_nets+=( "$net" )
+    for net in $(ip -4 -json address show dev "${ifname}" | jq --raw-output '.[].addr_info[] | "\(.local)/\(.prefixlen)"'); do
+        local_docker_nets+=( "${net}" )
     done
 done
 printf -v dest_nets '%s,' "${local_docker_nets[@]}"
@@ -49,10 +52,11 @@ iptables --append LOCAL_DOCKER_OUTPUT \
 
 # Create static routes for any ALLOWED_SUBNETS and punch holes in the firewall
 default_gateway=$(ip -4 -json route | jq --raw-output '.[] | select(.dst == "default") | .gateway')
+# shellcheck disable=SC2154
 for subnet in ${ALLOWED_SUBNETS//,/ }; do
-    ip route add "$subnet" via "$default_gateway"
+    ip route add "${subnet}" via "${default_gateway}"
     iptables --insert OUTPUT \
-        --destination "$subnet" \
+        --destination "${subnet}" \
         --jump ACCEPT
 done
 
